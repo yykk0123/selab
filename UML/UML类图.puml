@@ -1,0 +1,178 @@
+@startuml
+skinparam defaultFontName Noto Sans CJK SC
+skinparam dpi 150
+title 多人共享记账系统 - UML类图
+
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+hide circle
+top to bottom direction
+
+package "用户与账本管理" {
+  class User {
+    - id: UUID
+    - username: String
+    - email: String
+    + createLedger(name: String): Ledger
+  }
+
+  class Ledger {
+    - id: UUID
+    - name: String
+    - status: LedgerStatus
+    - createdAt: DateTime
+    + close(): void
+    + reopen(): void
+  }
+
+  class LedgerMember {
+    - id: UUID
+    - role: MemberRole
+    - status: MemberStatus
+    - joinedAt: DateTime
+  }
+}
+
+package "账单管理" {
+  class Expense {
+    - id: UUID
+    - amount: Decimal
+    - category: String
+    - status: ExpenseStatus
+    - createdAt: DateTime
+  }
+
+  class ExpenseContribution {
+    - id: UUID
+    - amount: Decimal
+  }
+
+  class ExpenseShare {
+    - id: UUID
+    - amount: Decimal
+  }
+
+  class ExpenseAdjustment {
+    - id: UUID
+    - reason: String
+    - status: AdjustmentStatus
+    - createdAt: DateTime
+  }
+}
+
+package "审核与预算" {
+  class Budget {
+    - id: UUID
+    - category: String
+    - limit: Decimal
+    - periodStart: Date
+    - periodEnd: Date
+  }
+
+  class Approval {
+    - id: UUID
+    - decision: ApprovalDecision
+    - reason: String
+    - reviewedAt: DateTime
+  }
+}
+
+package "分摊与结算" {
+  class DebtAllocation {
+    - id: UUID
+    - amount: Decimal
+  }
+
+  class Payment {
+    - id: UUID
+    - amount: Decimal
+    - status: PaymentStatus
+    - createdAt: DateTime
+  }
+
+  class DebtCalculator {
+    + calculateRemainingDebts(ledgerId: UUID)
+  }
+
+  class DebtAllocationService {
+    + generateAllocations(expenseId: UUID)
+  }
+}
+
+package "业务服务" {
+  class ExpenseService {
+    + submitExpense(expense: Expense): void
+    + requestAdjustment(expenseId: UUID): void
+    + voidExpense(expenseId: UUID): void
+  }
+
+  class ApprovalService {
+    + requiresApproval(expense: Expense): boolean
+    + approve(expenseId: UUID): void
+    + reject(expenseId: UUID): void
+  }
+
+  class BudgetService {
+    + checkBudget(expense: Expense): boolean
+  }
+
+  class DuplicateDetectionService {
+    + isPotentialDuplicate(expense: Expense): boolean
+  }
+}
+
+package "审计" {
+  class OperationLog {
+    - id: UUID
+    - action: String
+    - createdAt: DateTime
+  }
+}
+
+User "1" -- "0..*" LedgerMember
+Ledger "1" *-- "0..*" LedgerMember
+Ledger "1" *-- "0..*" Expense
+Ledger "1" *-- "0..*" Budget
+Ledger "1" *-- "0..*" Payment
+Ledger "1" *-- "0..*" OperationLog
+
+Expense "1" *-- "1..*" ExpenseContribution
+Expense "1" *-- "1..*" ExpenseShare
+Expense "1" *-- "0..*" ExpenseAdjustment
+Expense "1" *-- "0..*" DebtAllocation
+Expense "1" -- "0..*" Approval
+
+ExpenseContribution "0..*" --> "1" LedgerMember : contributor
+ExpenseShare "0..*" --> "1" LedgerMember : participant
+Expense "0..*" --> "1" LedgerMember : submitter
+
+DebtAllocation "0..*" --> "1" LedgerMember : debtor
+DebtAllocation "0..*" --> "1" LedgerMember : creditor
+
+Payment "0..*" --> "1" DebtAllocation : settles
+Payment "0..*" --> "1" LedgerMember : payer
+Payment "0..*" --> "1" LedgerMember : payee
+
+Approval "0..*" --> "0..1" LedgerMember : reviewer
+OperationLog "0..*" --> "1" User : operator
+
+ExpenseService ..> ApprovalService
+ExpenseService ..> DebtAllocationService
+ApprovalService ..> BudgetService
+ApprovalService ..> DuplicateDetectionService
+DebtCalculator ..> DebtAllocation
+DebtCalculator ..> Payment
+DebtCalculator ..> ExpenseAdjustment
+
+note bottom of Expense
+  sum(contributions) = amount
+  sum(shares) = amount
+  已审核账单通过调整记录更正
+end note
+
+note bottom of DebtCalculator
+  保留原始债务关系
+  根据有效调整和付款动态计算余额
+end note
+
+@enduml

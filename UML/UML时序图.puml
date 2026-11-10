@@ -1,0 +1,80 @@
+@startuml
+skinparam defaultFontName Noto Sans CJK SC
+skinparam dpi 150
+title 多人共享记账系统 - 账单提交与审核时序图
+
+autonumber
+
+actor "普通成员" as User
+participant "Web UI" as UI
+participant "ExpenseService" as Expense
+participant "MemberService" as Member
+participant "DuplicateDetectionService" as Duplicate
+participant "BudgetService" as Budget
+participant "ApprovalService" as Approval
+participant "DebtAllocationService" as Debt
+database "Database" as DB
+actor "管理员" as Admin
+
+User -> UI : 填写并提交账单
+UI -> Expense : submitExpense(data, requestId)
+
+Expense -> Member : checkPermission(userId, ledgerId)
+Member --> Expense : 权限检查结果
+
+alt 无权限或账本已关闭
+  Expense --> UI : 拒绝提交
+  UI --> User : 显示错误
+else 允许提交
+  Expense -> Expense : 校验金额及分摊合计
+
+  alt 数据不合法
+    Expense --> UI : 校验失败
+    UI --> User : 显示错误
+  else 数据合法
+    Expense -> DB : 检查请求幂等标识
+    DB --> Expense : 检查结果
+
+    alt 请求已经处理
+      Expense --> UI : 返回已有提交结果
+    else 新请求
+      Expense -> Duplicate : isPotentialDuplicate(data)
+      Duplicate --> Expense : 重复检测结果
+
+      Expense -> Budget : checkBudget(data)
+      Budget --> Expense : 预算检查结果
+
+      Expense -> Approval : requiresApproval(checkResults)
+      Approval --> Expense : 是否需要审核
+
+      Expense -> DB : 保存账单及垫付/分摊信息
+
+      alt 需要管理员审核
+        Expense -> DB : 设置状态 PENDING
+        Expense --> UI : 提交成功，等待审核
+        UI --> User : 显示待审核状态
+
+        Approval -> Admin : 发送审核通知
+        Admin -> Approval : approve(expenseId)
+
+        Approval -> DB : 保存审核记录
+        Approval -> DB : 更新账单状态 APPROVED
+
+        Approval -> Debt : generateAllocations(expenseId)
+        Debt -> DB : 保存原始债务分配
+        Debt --> Approval : 生成完成
+
+      else 无需审核
+        Expense -> DB : 设置状态 APPROVED
+        Expense -> Debt : generateAllocations(expenseId)
+        Debt -> DB : 保存原始债务分配
+        Debt --> Expense : 生成完成
+
+        Expense --> UI : 提交成功
+        UI --> User : 显示已通过
+      end
+    end
+  end
+end
+
+@enduml

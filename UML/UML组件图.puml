@@ -1,0 +1,76 @@
+@startuml
+skinparam defaultFontName Noto Sans CJK SC
+skinparam dpi 150
+title 多人共享记账系统 - UML组件图
+
+skinparam componentStyle rectangle
+skinparam linetype polyline
+skinparam nodesep 45
+skinparam ranksep 65
+skinparam padding 20
+top to bottom direction
+
+package "表现层" {
+  [Web UI] as UI
+}
+
+package "业务逻辑层" {
+  [账本管理模块] as Ledger
+  [成员与权限模块] as Member
+  [账单管理模块] as Expense
+  [审核与预算模块] as Approval
+  [分摊与结算模块] as Settlement
+  [查询与统计模块] as Statistics
+}
+
+package "数据访问层" {
+  [Repository] as Repo
+}
+
+package "基础设施层" {
+  database "关系型数据库" as DB
+  [操作日志服务] as Log
+  [备份服务] as Backup
+}
+
+UI --> Ledger
+UI --> Member
+UI --> Expense
+UI --> Approval
+UI --> Settlement
+UI --> Statistics
+
+Ledger --> Member : 成员权限
+Expense --> Ledger : 账本状态
+Expense --> Member : 提交权限
+Expense --> Approval : 审核检查
+Approval --> Expense : 账单信息
+Settlement --> Expense : 有效账单
+Settlement --> Member : 成员信息
+Statistics --> Expense : 账单数据
+Statistics --> Settlement : 债务数据
+
+Ledger --> Repo
+Member --> Repo
+Expense --> Repo
+Approval --> Repo
+Settlement --> Repo
+Statistics --> Repo
+
+Repo --> DB
+Log --> DB
+Backup --> DB
+
+Ledger ..> Log
+Member ..> Log
+Expense ..> Log
+Approval ..> Log
+Settlement ..> Log
+
+note bottom of Settlement
+  自动生成原始债务分配
+  不进行跨账单债务简化
+  支持部分付款
+end note
+
+@enduml

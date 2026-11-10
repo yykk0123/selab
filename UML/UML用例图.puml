@@ -1,0 +1,83 @@
+@startuml
+skinparam defaultFontName Noto Sans CJK SC
+skinparam dpi 150
+title 多人共享记账系统 - UML用例图
+
+left to right direction
+skinparam packageStyle rectangle
+
+actor "普通成员" as Member
+actor "管理员" as Admin
+
+Admin --|> Member
+
+rectangle "多人共享记账系统" {
+
+  package "账本管理" {
+    usecase "创建账本" as UC1
+    usecase "查看账本" as UC2
+    usecase "退出账本" as UC3
+    usecase "关闭/重开账本" as UC4
+  }
+
+  package "成员与权限管理" {
+    usecase "邀请成员" as UC5
+    usecase "移除成员" as UC6
+    usecase "转移管理员权限" as UC7
+  }
+
+  package "账单管理" {
+    usecase "提交账单" as UC8
+    usecase "修改/撤回账单" as UC9
+    usecase "申请账单调整" as UC10
+    usecase "申请作废账单" as UC11
+  }
+
+  package "审核与预算" {
+    usecase "审核账单" as UC12
+    usecase "审核调整记录" as UC13
+    usecase "设置类别预算" as UC14
+  }
+
+  package "结算与统计" {
+    usecase "查看原始债务" as UC15
+    usecase "记录部分/全部付款" as UC16
+    usecase "查看结算记录" as UC17
+    usecase "查询账单" as UC18
+    usecase "查看统计报表" as UC19
+  }
+}
+
+Member --> UC1
+Member --> UC2
+Member --> UC3
+Member --> UC8
+Member --> UC9
+Member --> UC10
+Member --> UC11
+Member --> UC15
+Member --> UC16
+Member --> UC17
+Member --> UC18
+Member --> UC19
+
+Admin --> UC4
+Admin --> UC5
+Admin --> UC6
+Admin --> UC7
+Admin --> UC12
+Admin --> UC13
+Admin --> UC14
+
+note bottom of UC3
+  退出前必须结清债务
+  且不存在待审核账单
+  管理员需先转移权限
+end note
+
+note bottom of UC10
+  已审核账单不能直接覆盖
+  调整记录需管理员审核
+end note
+
+@enduml
